@@ -296,4 +296,4 @@ class Mattermost(BotPlugin):
         for msg in self.sync(courses, mm):
             self.log.info(msg)
 
-        self.send(self.build_identifier('#pan-test'), 'Sync completed!')
+        # self.send(self.build_identifier('#pan-test'), 'Sync completed!')

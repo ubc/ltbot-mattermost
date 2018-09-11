@@ -37,6 +37,17 @@ class Mattermost(BotPlugin):
             self['course_mappings'] = set()
         self.course_mappings = self['course_mappings']
 
+        # add additional acls
+        self.bot_config.ACCESS_CONTROLS.update({
+            'mm_sync': { # only allow admins to run and can only be run in #mattermost and direct msg
+                'allowrooms': ('#' + self.config['MM_CHANNEL'], ),
+                'allowusers': self.config['ADMINS'] + self.bot_config.BOT_ADMINS
+            },
+            'mm_token_set': {'allowmuc': None},  # only allow direct msg
+            'mm_token_show': {'allowmuc': None},  # only allow direct msg
+            'mm_token_list': {'allowmuc': None}  # only allow direct msg
+        })
+
     def deactivate(self):
         """
         Triggers on plugin deactivation
@@ -53,11 +64,14 @@ class Mattermost(BotPlugin):
             'MM_URL': 'https://mattermost.example.com',
             'MM_PORT': 443,
             'MM_SCHEME': 'https',
+            'MM_CHANNEL': '#mattermost',
             'MM_DEBUG': False,
             'LDAP_URI': 'ldaps://localhost:636',
             'LDAP_BIND_USER': 'cn=username,ou=org,dc=example,dc=com',
             'LDAP_BIND_ENCRYPTED_PASSWORD': 'ENCRYPTED_PASSWORD',
-            'LDAP_SEARCH_BASE': 'ou=BASE,dc=example,dc=com'
+            'LDAP_SEARCH_BASE': 'ou=BASE,dc=example,dc=com',
+            'ADMINS': ('@mmadmin',),
+            'SYNC_FREQUENCY': 600
         }
 
     def check_configuration(self, configuration):

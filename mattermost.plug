@@ -1,0 +1,13 @@
+[Core]
+module = mattermost
+name = Mattermost
+
+[Documentation]
+description = Syncing from ELDAP group to Mattermost team
+
+[Python]
+version = 3
+
+[Errbot]
+min = 5.2.0
+

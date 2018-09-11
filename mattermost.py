@@ -20,6 +20,10 @@ class Mattermost(BotPlugin):
 
         You should delete it if you're not using it to override any default behaviour
         """
+        if not self.config:
+            self.log.info('Mattermost is not configured. Forbid activation')
+            return
+
         if not self.key:
             raise ValueError('Missing encryption key. Please set ENCRYPTION_KEY environment variable.')
         else:

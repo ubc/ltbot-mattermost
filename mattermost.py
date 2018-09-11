@@ -10,9 +10,9 @@ class Mattermost(BotPlugin):
     """
     Syncing from ELDAP group to Mattermost team
     """
-    key = os.environ.get('ENCRYPTION_KEY')
     tokens = {}
     course_mappings = set()
+    fernet = None
 
     def activate(self):
         """
@@ -24,10 +24,15 @@ class Mattermost(BotPlugin):
             self.log.info('Mattermost is not configured. Forbid activation')
             return
 
-        if not self.key:
+        key = os.environ.get('ENCRYPTION_KEY')
+        if not key:
             raise ValueError('Missing encryption key. Please set ENCRYPTION_KEY environment variable.')
-        else:
-            super(Mattermost, self).activate()
+
+        # init Fernet with decrypt token
+        self.fernet = Fernet(key.encode('utf-8'))
+
+        # need to activate plugin before accessing storage
+        super(Mattermost, self).activate()
 
         if 'tokens' not in self:
             self['tokens'] = {}
@@ -39,14 +44,21 @@ class Mattermost(BotPlugin):
 
         # add additional acls
         self.bot_config.ACCESS_CONTROLS.update({
-            'mm_sync': { # only allow admins to run and can only be run in #mattermost and direct msg
+            'Mattermost:mm_sync': {  # only allow admins to run and can only be run in #mattermost and direct msg
                 'allowrooms': ('#' + self.config['MM_CHANNEL'], ),
                 'allowusers': self.config['ADMINS'] + self.bot_config.BOT_ADMINS
             },
-            'mm_token_set': {'allowmuc': None},  # only allow direct msg
-            'mm_token_show': {'allowmuc': None},  # only allow direct msg
-            'mm_token_list': {'allowmuc': None}  # only allow direct msg
+            'Mattermost:mm_token_*': {'allowmuc': False},  # only allow direct msg
+            'Mattermost:mm_scheduler_*': {  # only allow admins to run and can only be run in #mattermost and direct msg
+                'allowrooms': ('#' + self.config['MM_CHANNEL'], ),
+                'allowusers': self.config['ADMINS'] + self.bot_config.BOT_ADMINS
+            },
         })
+
+        # start scheduler
+        if self.config['MM_ENCRYPTED_ACCESS_TOKEN']:
+            self.start_poller(self.config['SYNC_FREQUENCY'], self.refresh)
+            self.log.info('Mattermost auto sync scheduler started')
 
     def deactivate(self):
         """
@@ -66,6 +78,7 @@ class Mattermost(BotPlugin):
             'MM_SCHEME': 'https',
             'MM_CHANNEL': '#mattermost',
             'MM_DEBUG': False,
+            'MM_ENCRYPTED_ACCESS_TOKEN': None,
             'LDAP_URI': 'ldaps://localhost:636',
             'LDAP_BIND_USER': 'cn=username,ou=org,dc=example,dc=com',
             'LDAP_BIND_ENCRYPTED_PASSWORD': 'ENCRYPTED_PASSWORD',
@@ -110,14 +123,14 @@ class Mattermost(BotPlugin):
 
     @botcmd
     def mm_token_set(self, message, args):
-        """Set token command"""
+        """Set encrypted access token to be used for ad-hoc command"""
         self.tokens[message.frm.person] = args
         self['tokens'] = self.tokens
         return "Mattermost access token is set"
 
     @botcmd
     def mm_token_show(self, message, args):
-        """Show token command"""
+        """Show encrypted access token to be used for ad-hoc command"""
         if 'tokens' not in self or message.frm.person not in self['tokens']:
             return 'No token'
         else:
@@ -125,7 +138,7 @@ class Mattermost(BotPlugin):
 
     @botcmd(admin_only=True)
     def mm_token_list(self, message, args):
-        """show token command"""
+        """List all encrypted access token stored"""
         if 'tokens' in self:
             return str(self['tokens'])
         else:
@@ -133,12 +146,12 @@ class Mattermost(BotPlugin):
 
     @botcmd(admin_only=True)
     def mm_mapping_list(self, message, args):
-        """list all course mappings command"""
+        """List all course mappings used for automatic syncing"""
         return str(self['course_mappings'])
 
     @botcmd(admin_only=True)
     def mm_mapping_add(self, message, args):
-        """manually add a course to course mappings command"""
+        """Manually add a course to course mappings for automatic syncing"""
         self.course_mappings.add(args)
         self['course_mappings'] = self.course_mappings
         return 'Course {} is added to course mappings. We have {} courses in the mapping'.format(
@@ -147,38 +160,74 @@ class Mattermost(BotPlugin):
 
     @botcmd(admin_only=True)
     def mm_mapping_remove(self, message, args):
-        """remove a course to course mappings command"""
+        """Remove a course to course mappings for automatic syncing"""
         self.course_mappings.remove(args)
         self['course_mappings'] = self.course_mappings
         return 'Course {} is removed from course mappings. We have {} courses in the mapping'.format(
             args, len(self['course_mappings'])
         )
 
+    @botcmd(admin_only=True)
+    def mm_scheduler_start(self, message, args):
+        """Start scheduler for automatic syncing"""
+        if not self.config['MM_ENCRYPTED_ACCESS_TOKEN']:
+            yield 'I need MM_ENCRYPTED_ACCESS_TOKEN in the configuration to be set in order to use scheduled sync.'
+            return
+        self.start_poller(self.config['SYNC_FREQUENCY'], self.refresh)
+        yield 'OK, automatic sync started.'
+
+    @botcmd(admin_only=True)
+    def mm_scheduler_stop(self, message, args):
+        """Stop scheduler for automatic syncing"""
+        self.stop_poller(self.refresh)
+        yield 'OK, automatic sync stopped.'
+
     @arg_botcmd('course_spec')
     @arg_botcmd('--once', dest='once', action='store_false')
     def mm_sync(self, message, course_spec, once):
-        """Sync LDAP to MM team"""
-        # check if personal token is set
-        if 'tokens' not in self or message.frm.person not in self['tokens']:
-            yield 'Please use `!mm token set ENCRYPTED_TOKEN` to set up Mattermost access token.'
-            return
-
+        """Ad-hoc sync LDAP to MM team"""
         if course_spec.lower() == 'all':
             courses = self['course_mappings']
         else:
             courses = (course_spec,)
 
+        # check if personal token is set
+        if 'tokens' not in self or message.frm.person not in self['tokens']:
+            yield 'Please use `!mm token set ENCRYPTED_ACCESS_TOKEN` to set up Mattermost access token.'
+
+        token = self['tokens'][message.frm.person]
+
+        try:
+            mm = self.init_mm(token)
+        except Exception as e:
+            yield e
+            return
+
+        for msg in self.sync(courses, mm):
+            yield msg
+
+        # store the mapping
+        if course_spec.lower() != 'all' and not once:
+            self.course_mappings.add(course_spec)
+            self['course_mappings'] = self.course_mappings
+
+        return
+
+    def init_mm(self, token):
+        mm = Sync({
+            'url': self.config['MM_URL'],
+            'token': self.fernet.decrypt(token.encode('utf-8')).decode('utf-8'),
+            'port': self.config['MM_PORT'],
+            'scheme': self.config['MM_SCHEME'],
+            'debug': self.config['MM_DEBUG']
+        })
+        mm.driver.login()
+
+        return mm
+
+    def sync(self, courses, mm):
+        """Actual sync function, also a generator"""
         for course in courses:
-            # decrypt token and login
-            f = Fernet(self.key.encode('utf-8'))
-            mm = Sync({
-                'url'   : self.config['MM_URL'],
-                'token' : f.decrypt(self['tokens'][message.frm.person].encode('utf-8')).decode('utf-8'),
-                'port'  : self.config['MM_PORT'],
-                'scheme': self.config['MM_SCHEME'],
-                'debug' : self.config['MM_DEBUG']
-            })
-            mm.driver.login()
 
             source_courses, team_name = parse_course(course)
             yield 'OK, syncing course(s) {} to team {}.'.format(source_courses, team_name)
@@ -188,12 +237,13 @@ class Mattermost(BotPlugin):
                 for c in source_courses:
                     course_members.extend(mm.get_member_from_ldap(
                         self.config['LDAP_URI'], self.config['LDAP_BIND_USER'],
-                        f.decrypt(self.config['LDAP_BIND_ENCRYPTED_PASSWORD'].encode('utf-8')).decode('utf-8'),
+                        self.fernet.decrypt(
+                            self.config['LDAP_BIND_ENCRYPTED_PASSWORD'].encode('utf-8')).decode('utf-8'),
                         self.config['LDAP_SEARCH_BASE'],
                         *c))
             except CourseNotFound as e:
                 yield e
-                return
+                continue
 
             try:
                 team = mm.get_team_by_name(team_name)
@@ -237,9 +287,13 @@ class Mattermost(BotPlugin):
                 return
             yield 'Finished to sync course {}.'.format(course)
 
-        # store the mapping
-        if course_spec.lower() != 'all' or once:
-            self.course_mappings.add(course_spec)
-            self['course_mappings'] = self.course_mappings
+    def refresh(self):
+        """Refresh the team members"""
+        courses = self['course_mappings']
 
-        return
+        mm = self.init_mm(self.config['MM_ENCRYPTED_ACCESS_TOKEN'])
+
+        for msg in self.sync(courses, mm):
+            self.log.info(msg)
+
+        self.send(self.build_identifier('#pan-test'), 'Sync completed!')

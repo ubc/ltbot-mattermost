@@ -33,6 +33,8 @@ Please see [here](https://github.com/ubc/mattermost-sync#course-name-spec) for d
 * *!mm scheduler start* - Start scheduler for automatic syncing
 * *!mm scheduler stop* - Stop scheduler for automatic syncing
 * *!mm sync* - usage: mm_sync [-h] [--once] course_spec
+    * When a course is synced with this command, it is added to course mapping by default unless 
+    `--once` option is specified. The scheduler will use the mapping to do automatic syncing.
     * !mm sync [COURSE_NAME_SPEC](https://github.com/ubc/mattermost-sync#course-name-spec)
     * !mm sync CPSC_101_101_2018W
     * !mm sync CPSC_101_101_2018W=CUSTOM-TEAM-NAME

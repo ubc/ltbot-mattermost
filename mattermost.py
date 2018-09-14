@@ -53,6 +53,10 @@ class Mattermost(BotPlugin):
                 'allowrooms': ('#' + self.config['MM_CHANNEL'], ),
                 'allowusers': self.config['ADMINS'] + self.bot_config.BOT_ADMINS
             },
+            'Mattermost:mm_mapping_*': {  # only allow admins to run and can only be run in #mattermost and direct msg
+                'allowrooms': ('#' + self.config['MM_CHANNEL'], ),
+                'allowusers': self.config['ADMINS'] + self.bot_config.BOT_ADMINS
+            },
         })
 
         # start scheduler
@@ -144,12 +148,12 @@ class Mattermost(BotPlugin):
         else:
             return '{}'
 
-    @botcmd(admin_only=True)
+    @botcmd()
     def mm_mapping_list(self, message, args):
         """List all course mappings used for automatic syncing"""
         return str(self['course_mappings'])
 
-    @botcmd(admin_only=True)
+    @botcmd()
     def mm_mapping_add(self, message, args):
         """Manually add a course to course mappings for automatic syncing"""
         self.course_mappings.add(args)
@@ -158,7 +162,7 @@ class Mattermost(BotPlugin):
             args, len(self['course_mappings'])
         )
 
-    @botcmd(admin_only=True)
+    @botcmd()
     def mm_mapping_remove(self, message, args):
         """Remove a course to course mappings for automatic syncing"""
         self.course_mappings.remove(args)

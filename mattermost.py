@@ -219,7 +219,11 @@ class Mattermost(BotPlugin):
             'token': self.fernet.decrypt(token.encode('utf-8')).decode('utf-8'),
             'port': self.config['MM_PORT'],
             'scheme': self.config['MM_SCHEME'],
-            'debug': self.config['MM_DEBUG']
+            'debug': self.config['MM_DEBUG'],
+            'ldap_uri': self.config['LDAP_URI'],
+            'bind_user': self.config['LDAP_BIND_USER'],
+            'bind_password': self.fernet.decrypt(
+                self.config['LDAP_BIND_ENCRYPTED_PASSWORD'].encode('utf-8')).decode('utf-8')
         })
         mm.driver.login()
 
@@ -236,9 +240,6 @@ class Mattermost(BotPlugin):
                 course_members = []
                 for c in source_courses:
                     course_members.extend(mm.get_member_from_ldap(
-                        self.config['LDAP_URI'], self.config['LDAP_BIND_USER'],
-                        self.fernet.decrypt(
-                            self.config['LDAP_BIND_ENCRYPTED_PASSWORD'].encode('utf-8')).decode('utf-8'),
                         self.config['LDAP_SEARCH_BASE'],
                         *c))
             except CourseNotFound as e:

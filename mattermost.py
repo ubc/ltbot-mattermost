@@ -1,4 +1,7 @@
 import os
+import re
+from errbot.backends.base import Person, RoomOccupant
+from mattermostdriver.exceptions import ResourceNotFound
 from requests import HTTPError
 from cryptography.fernet import Fernet
 
@@ -10,6 +13,13 @@ class Mattermost(BotPlugin):
     """
     Syncing from ELDAP group to Mattermost team
     """
+    COMMAND_PATTERN = {
+        ('add ([^ ]*) to (.*)', 'add_user_to_team')
+    }
+    ROLES = {
+        'user': 'team_user',
+        'admin': 'team_user team_admin'
+    }
     tokens = {}
     course_mappings = set()
     fernet = None
@@ -54,6 +64,10 @@ class Mattermost(BotPlugin):
                 'allowusers': self.config['ADMINS'] + self.bot_config.BOT_ADMINS
             },
             'Mattermost:mm_mapping_*': {  # only allow admins to run and can only be run in #mattermost and direct msg
+                'allowrooms': ('#' + self.config['MM_CHANNEL'], ),
+                'allowusers': self.config['ADMINS'] + self.bot_config.BOT_ADMINS
+            },
+            'Mattermost:mm_user_*': {  # only allow admins to run and can only be run in #mattermost and direct msg
                 'allowrooms': ('#' + self.config['MM_CHANNEL'], ),
                 'allowusers': self.config['ADMINS'] + self.bot_config.BOT_ADMINS
             },
@@ -124,6 +138,33 @@ class Mattermost(BotPlugin):
         You should delete it if you're not using it to override any default behaviour
         """
         pass
+
+    # def callback_mention(self, message, mentioned_people):
+    #     if self.bot_identifier in mentioned_people:
+    #         found = False
+    #         for pattern, func_name in self.COMMAND_PATTERN:
+    #             m = re.search(pattern, message.body)
+    #             if m:
+    #                 # acls(message, func_name)
+    #                 self._bot._process_command(message, func_name, [], False)
+    #                 func = getattr(self, func_name)
+    #                 found = True
+    #                 func(message, m)
+    #
+    #         if not found:
+    #             self.send(message.frm, 'Sorry, I don\'t understand your command')
+    #
+    # def add_user_to_team(self, message, match):
+    #     user = match.group(1)
+    #     team = match.group(2)
+    #     msg_to = None
+    #     if isinstance(message.frm, RoomOccupant):
+    #         msg_to = message.frm.room
+    #     elif isinstance(message.frm, Person):
+    #         msg_to = message.frm
+    #     else:
+    #         self.log.warn('Unknown message.frm field!')
+    #     self.send(msg_to, 'Adding {} msg_to {}'.format(user, team))
 
     @botcmd
     def mm_token_set(self, message, args):
@@ -216,6 +257,84 @@ class Mattermost(BotPlugin):
             self['course_mappings'] = self.course_mappings
 
         return
+
+    @arg_botcmd('team_name')
+    @arg_botcmd('username')
+    @arg_botcmd('--role', dest='role', default='user', choices=['admin', 'user'])
+    def mm_user_add(self, message, username, team_name, role):
+        """Add a user to a team"""
+        token = self['tokens'][message.frm.person]
+        try:
+            mm = self.init_mm(token)
+        except Exception as e:
+            yield e
+            return
+
+        try:
+            team = mm.driver.teams.get_team_by_name(team_name)
+        except ResourceNotFound:
+            yield 'I can\'t find team under name `{}` in the system.'.format(team_name)
+            return
+        except Exception as e:
+            yield e
+            return
+
+        try:
+            user = mm.driver.users.get_user_by_username(username)
+        except ResourceNotFound:
+            u = mm.get_users_from_ldap(username)
+            if not u:
+                yield 'I can\'t find user with username `{}` in LDAP'.format(username)
+                return
+            user = mm.driver.users.create_user(u)
+
+        mm.add_users_to_team([user], team['id'], self.ROLES[role])
+        if role == 'admin':
+            mm.driver.teams.update_team_member_roles(team['id'], user['id'], {'roles': self.ROLES[role]})
+
+        yield 'OK, I added user `{}` to team `{}` as `{}`'.format(username, team_name, role)
+
+    @arg_botcmd('team_name')
+    @arg_botcmd('username')
+    def mm_user_remove(self, message, username, team_name):
+        """Remove a user from a team"""
+        token = self['tokens'][message.frm.person]
+        try:
+            mm = self.init_mm(token)
+        except Exception as e:
+            yield e
+            return
+
+        try:
+            team = mm.driver.teams.get_team_by_name(team_name)
+        except ResourceNotFound:
+            yield 'I can\'t find team under name `{}` in the system.'.format(team_name)
+            return
+        except Exception as e:
+            yield e
+            return
+
+        try:
+            user = mm.driver.users.get_user_by_username(username)
+        except ResourceNotFound:
+            yield 'I can\'t find user under username `{}` in the system.'.format(team_name)
+            return
+        except Exception as e:
+            yield e
+            return
+
+        try:
+            teams = mm.driver.teams.get_user_teams(user['id'])
+            if team['id'] in [t['id'] for t in teams]:
+                mm.driver.teams.remove_user_from_team(team['id'], user['id'])
+            else:
+                yield 'Hmmm, it looks like user `{}` is not in team `{}`'.format(username, team_name)
+                return
+        except Exception as e:
+            yield e
+            return
+
+        yield 'OK, I removed user `{}` from team `{}`'.format(username, team_name)
 
     def init_mm(self, token):
         mm = Sync({

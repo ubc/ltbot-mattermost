@@ -43,3 +43,8 @@ Please see [here](https://github.com/ubc/mattermost-sync#course-name-spec) for d
 * *!mm token set* - Set encrypted access token to be used for ad-hoc command
     * !mm token set ENCRYPTED_ACCESS_TOKEN
 * *!mm token show* - Show encrypted access token to be used for ad-hoc command
+* *!mm user add* - usage: mm_user_add [-h] [--role {admin,user}] username team_name
+    * Add a user to a team
+    * By default, adding as user/member role
+* *!mm user remove* - usage: mm_user_remove [-h] username team_name
+    * Remove a user from a team

@@ -286,7 +286,11 @@ class Mattermost(BotPlugin):
             if not u:
                 yield 'I can\'t find user with username `{}` in LDAP'.format(username)
                 return
-            user = mm.driver.users.create_user(u)
+            created_users, failed_users = mm.create_users(u)
+            if not created_users:
+                yield 'I have some troubles to create user `{}`. Checkout the logs or try again later.'
+                return
+            user = created_users[0]
 
         mm.add_users_to_team([user], team['id'], self.ROLES[role])
         if role == 'admin':

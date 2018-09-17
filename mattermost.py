@@ -1,9 +1,9 @@
 import os
 import re
 from errbot.backends.base import Person, RoomOccupant
-from mattermostdriver.exceptions import ResourceNotFound
+from mattermostdriver.exceptions import ResourceNotFound, NoAccessTokenProvided
 from requests import HTTPError
-from cryptography.fernet import Fernet
+from cryptography.fernet import Fernet, InvalidToken
 
 from errbot import BotPlugin, botcmd, arg_botcmd
 from mattermostsync import Sync, CourseNotFound, parse_course
@@ -169,6 +169,11 @@ class Mattermost(BotPlugin):
     @botcmd
     def mm_token_set(self, message, args):
         """Set encrypted access token to be used for ad-hoc command"""
+        # check if it is a valid token
+        try:
+            self.init_mm(args)
+        except (NoAccessTokenProvided, InvalidToken):
+            return 'Hmmm, it seems you have an incorrect token. Have you encrypted it?'
         self.tokens[message.frm.person] = args
         self['tokens'] = self.tokens
         return "Mattermost access token is set"

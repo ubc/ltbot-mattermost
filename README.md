@@ -39,6 +39,7 @@ Please see [here](https://github.com/ubc/mattermost-sync#course-name-spec) for d
     * !mm sync CPSC_101_101_2018W
     * !mm sync CPSC_101_101_2018W=CUSTOM-TEAM-NAME
     * !mm sync CPSC_101_101_2018W+CPSC_101_201_2018W=CUSTOM-TEAM-NAME
+* *!mm team list* - List all teams in in Mattermost
 * *!mm token list* - List all encrypted access token stored
 * *!mm token set* - Set encrypted access token to be used for ad-hoc command
     * !mm token set ENCRYPTED_ACCESS_TOKEN

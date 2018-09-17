@@ -345,6 +345,26 @@ class Mattermost(BotPlugin):
 
         yield 'OK, I removed user `{}` from team `{}`'.format(username, team_name)
 
+    @botcmd()
+    def mm_team_list(self, message, args):
+        """List all teams in in Mattermost"""
+        token = self['tokens'][message.frm.person]
+        try:
+            mm = self.init_mm(token)
+        except Exception as e:
+            return e
+
+        teams = []
+        for i in range(1000):
+            t = mm.driver.teams.get_teams({'page': i, 'per_page': 60})
+            teams.extend(t)
+            if len(t) < 60:
+                break
+
+        return 'OK, here is a list of teams:\nName - Display Name\n' + '\n'.join(
+            ['{} - {}'.format(t['name'], t['display_name']) for t in teams]
+        ) if teams else 'I don\'t see any team.'
+
     def init_mm(self, token):
         mm = Sync({
             'url': self.config['MM_URL'],

@@ -71,6 +71,10 @@ class Mattermost(BotPlugin):
                 'allowrooms': ('#' + self.config['MM_CHANNEL'], ),
                 'allowusers': self.config['ADMINS'] + self.bot_config.BOT_ADMINS
             },
+            'Mattermost:mm_team_*': {  # only allow admins to run and can only be run in #mattermost and direct msg
+                'allowrooms': ('#' + self.config['MM_CHANNEL'], ),
+                'allowusers': self.config['ADMINS'] + self.bot_config.BOT_ADMINS
+            },
         })
 
         # start scheduler

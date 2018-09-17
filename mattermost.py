@@ -237,7 +237,7 @@ class Mattermost(BotPlugin):
         yield 'OK, automatic sync stopped.'
 
     @arg_botcmd('course_spec')
-    @arg_botcmd('--once', dest='once', action='store_false')
+    @arg_botcmd('--once', dest='once', action='store_true')
     def mm_sync(self, message, course_spec, once):
         """Ad-hoc sync LDAP to MM team"""
         if course_spec.lower() == 'all':

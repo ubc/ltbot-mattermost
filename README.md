@@ -39,6 +39,9 @@ Please see [here](https://github.com/ubc/mattermost-sync#course-name-spec) for d
     * !mm sync CPSC_101_101_2018W
     * !mm sync CPSC_101_101_2018W=CUSTOM-TEAM-NAME
     * !mm sync CPSC_101_101_2018W+CPSC_101_201_2018W=CUSTOM-TEAM-NAME
+* *!mm team add* - Add a team, usage: mm_team_add [-h] [--type {O,I}] [--display-name DISPLAY_NAME] team_name
+    * Display name is optional. Default is the value of `team_name`
+    * Type: can be `Open` or `Invite`, default: `Invite`
 * *!mm team list* - List all teams in in Mattermost
 * *!mm token list* - List all encrypted access token stored
 * *!mm token set* - Set encrypted access token to be used for ad-hoc command

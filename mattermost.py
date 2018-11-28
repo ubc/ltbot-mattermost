@@ -1,6 +1,4 @@
 import os
-import re
-from errbot.backends.base import Person, RoomOccupant
 from mattermostdriver.exceptions import ResourceNotFound, NoAccessTokenProvided
 from requests import HTTPError
 from cryptography.fernet import Fernet, InvalidToken
@@ -348,6 +346,30 @@ class Mattermost(BotPlugin):
             return
 
         yield 'OK, I removed user `{}` from team `{}`'.format(username, team_name)
+
+    @arg_botcmd('team_name')
+    @arg_botcmd('--display-name', dest='display_name')
+    @arg_botcmd('--type', dest='team_type', default='I', choices=['O', 'I'])
+    def mm_team_add(self, message, team_name, display_name, team_type):
+        token = self['tokens'][message.frm.person]
+        try:
+            mm = self.init_mm(token)
+        except Exception as e:
+            return e
+
+        if not display_name:
+            display_name = team_name
+
+        try:
+            team = mm.get_team_by_name(team_name)
+            if team:
+                return 'Team {} already exists.'.format(team_name)
+            else:
+                mm.create_team(team_name, display_name, team_type)
+                return 'Team {} is created.'.format(team_name)
+        except HTTPError as e:
+            self.log.error('Failed to create team {}: {}'.format(team_name, e.args))
+            return 'Failed to create team {}: {}'.format(team_name, e.args)
 
     @botcmd()
     def mm_team_list(self, message, args):

@@ -9,5 +9,5 @@ description = Syncing from ELDAP group to Mattermost team
 version = 3
 
 [Errbot]
-min = 5.2.0
+min = 6.1.4
 

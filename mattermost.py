@@ -53,24 +53,24 @@ class Mattermost(BotPlugin):
         # add additional acls
         self.bot_config.ACCESS_CONTROLS.update({
             'Mattermost:mm_sync': {  # only allow admins to run and can only be run in #mattermost and direct msg
-                'allowrooms': ('#' + self.config['MM_CHANNEL'], ),
+                'allowrooms': ('#' + self.config['MM_CHANNEL'],),
                 'allowusers': self.config['ADMINS'] + self.bot_config.BOT_ADMINS
             },
             'Mattermost:mm_token_*': {'allowmuc': False},  # only allow direct msg
             'Mattermost:mm_scheduler_*': {  # only allow admins to run and can only be run in #mattermost and direct msg
-                'allowrooms': ('#' + self.config['MM_CHANNEL'], ),
+                'allowrooms': ('#' + self.config['MM_CHANNEL'],),
                 'allowusers': self.config['ADMINS'] + self.bot_config.BOT_ADMINS
             },
             'Mattermost:mm_mapping_*': {  # only allow admins to run and can only be run in #mattermost and direct msg
-                'allowrooms': ('#' + self.config['MM_CHANNEL'], ),
+                'allowrooms': ('#' + self.config['MM_CHANNEL'],),
                 'allowusers': self.config['ADMINS'] + self.bot_config.BOT_ADMINS
             },
             'Mattermost:mm_user_*': {  # only allow admins to run and can only be run in #mattermost and direct msg
-                'allowrooms': ('#' + self.config['MM_CHANNEL'], ),
+                'allowrooms': ('#' + self.config['MM_CHANNEL'],),
                 'allowusers': self.config['ADMINS'] + self.bot_config.BOT_ADMINS
             },
             'Mattermost:mm_team_*': {  # only allow admins to run and can only be run in #mattermost and direct msg
-                'allowrooms': ('#' + self.config['MM_CHANNEL'], ),
+                'allowrooms': ('#' + self.config['MM_CHANNEL'],),
                 'allowusers': self.config['ADMINS'] + self.bot_config.BOT_ADMINS
             },
         })
@@ -328,7 +328,7 @@ class Mattermost(BotPlugin):
         try:
             user = mm.driver.users.get_user_by_username(username)
         except ResourceNotFound:
-            yield 'I can\'t find user under username `{}` in the system.'.format(team_name)
+            yield 'I can\'t find user under username `{}` in the system.'.format(username)
             return
         except Exception as e:
             yield e
@@ -346,6 +346,28 @@ class Mattermost(BotPlugin):
             return
 
         yield 'OK, I removed user `{}` from team `{}`'.format(username, team_name)
+
+    @arg_botcmd('username')
+    def mm_user_activate(self, message, username):
+        """Activate a user"""
+        token = self['tokens'][message.frm.person]
+        try:
+            mm = self.init_mm(token)
+            yield self.change_user_active_statue(mm, username, True)
+        except Exception as e:
+            yield e
+            return
+
+    @arg_botcmd('username')
+    def mm_user_deactivate(self, message, username):
+        """Activate a user"""
+        token = self['tokens'][message.frm.person]
+        try:
+            mm = self.init_mm(token)
+            yield self.change_user_active_statue(mm, username, False)
+        except Exception as e:
+            yield e
+            return
 
     @arg_botcmd('team_name')
     @arg_botcmd('--display-name', dest='display_name')
@@ -476,3 +498,12 @@ class Mattermost(BotPlugin):
             self.log.info(msg)
 
         # self.send(self.build_identifier('#pan-test'), 'Sync completed!')
+
+    def change_user_active_statue(self, mm, username, active):
+        try:
+            user = mm.driver.users.get_user_by_username(username)
+            mm.driver.users.update_user_active_status(user['id'], {'active': active})
+        except ResourceNotFound:
+            return 'I can\'t find user under username `{}` in the system.'.format(username)
+
+        return 'OK, I {} user `{}`'.format('activated' if active else 'deactivated', username)

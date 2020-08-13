@@ -52,3 +52,7 @@ Please see [here](https://github.com/ubc/mattermost-sync#course-name-spec) for d
     * By default, adding as user/member role
 * *!mm user remove* - usage: mm_user_remove [-h] username team_name
     * Remove a user from a team
+* *!mm user activate* - Activate a user
+    * Usage: !mm user activate USERNAME
+* *!mm user deactivate* - Deactivate a user
+    * Usage: !mm user deactivate USERNAME

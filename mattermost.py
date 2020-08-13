@@ -502,6 +502,9 @@ class Mattermost(BotPlugin):
     def change_user_active_statue(self, mm, username, active):
         try:
             user = mm.driver.users.get_user_by_username(username)
+            if active and not user['auth_data']:
+                mm.driver.users.update_user_authentication_method(
+                    user['id'], {'auth_data': username, 'auth_service': 'ldap'})
             mm.driver.users.update_user_active_status(user['id'], {'active': active})
         except ResourceNotFound:
             return 'I can\'t find user under username `{}` in the system.'.format(username)

@@ -9,7 +9,7 @@ from mattermostsync import Sync, CourseNotFound, parse_course
 
 class Mattermost(BotPlugin):
     """
-    Syncing from ELDAP group to Mattermost team
+    Manage Mattermost team and users with LDAP integration
     """
     COMMAND_PATTERN = {
         ('add ([^ ]*) to (.*)', 'add_user_to_team')
@@ -365,6 +365,94 @@ class Mattermost(BotPlugin):
         try:
             mm = self.init_mm(token)
             yield self.change_user_active_statue(mm, username, False)
+        except Exception as e:
+            yield e
+            return
+
+    @arg_botcmd('username')
+    @arg_botcmd('-f', '--full', dest='full', action='store_true')
+    def mm_user_get(self, message, username, full):
+        """Get user info by username"""
+        token = self['tokens'][message.frm.person]
+        try:
+            mm = self.init_mm(token)
+            user = mm.driver.users.get_user_by_username(username)
+            if full:
+                yield "User ID: `{}`\nUsername: `{}`\nEmail: `{}`\nFirstname: `{}`\nLastname: `{}`\n".format(
+                    user['id'], user['username'], user['email'], user['first_name'], user['last_name'])
+            else:
+                yield "User ID: `{}`\nUsername: `{}`".format(user['id'], user['username'])
+        except ResourceNotFound:
+            yield 'I can\'t find user under username `{}` in the system.'.format(username)
+            return
+        except Exception as e:
+            yield e
+            return
+
+    @arg_botcmd('username')
+    @arg_botcmd('--username', dest='to_username')
+    @arg_botcmd('--email', dest='email')
+    @arg_botcmd('--firstname', dest='firstname')
+    @arg_botcmd('--lastname', dest='lastname')
+    @arg_botcmd('--nickname', dest='nickname')
+    def mm_user_update(self, message, username, to_username, email, firstname, lastname, nickname):
+        """Update user info"""
+        token = self['tokens'][message.frm.person]
+        try:
+            opt = {}
+            if to_username is not None:
+                opt['username'] = to_username
+            if email is not None:
+                opt['email'] = email
+            if firstname is not None:
+                opt['first_name'] = firstname
+            if lastname is not None:
+                opt['last_name'] = lastname
+            if nickname is not None:
+                opt['nickname'] = nickname
+            if not opt:
+                yield "Please specify a field to update, available fields are `username`, `email`, " \
+                      "`firstname`, `lastname` and `nickname`."
+                return
+
+            mm = self.init_mm(token)
+            user = mm.driver.users.get_user_by_username(username)
+
+            changes = ''
+            if to_username and user['username'] != to_username:
+                changes = '\n'.join([changes, 'Username: `{}` => `{}`'.format(user['username'], to_username)])
+            if email and user['email'] != email:
+                changes = '\n'.join([changes, 'Email: `{}` => `{}`'.format(user['email'], email)])
+            if firstname and user['first_name'] != firstname:
+                changes = '\n'.join([changes, 'Firstname: `{}` => `{}`'.format(user['first_name'], firstname)])
+            if lastname and user['last_name'] != lastname:
+                changes = '\n'.join([changes, 'Lastname: `{}` => `{}`'.format(user['last_name'], lastname)])
+            if nickname and user['nickname'] != nickname:
+                changes = '\n'.join([changes, 'nickname: `{}` => `{}`'.format(user['nickname'], nickname)])
+            if not changes:
+                yield "Oops, it is the same as what I got for {}. Did you make a typo?".format(username)
+                return
+
+            if user['auth_service'] == 'ldap' and (to_username and user['username'] != to_username or email and user['email'] != email):
+                # when updating ldap mapped fields,e.g. username and email, we need to switch user back to email auth
+                mm.driver.users.update_user_authentication_method(
+                    user['id'], {'auth_data': '', 'auth_service': 'email', 'password': 'Thisistemppas3!'})
+                # update user
+                mm.driver.users.patch_user(user['id'], opt)
+                # then switch user back to ldap auth
+                mm.driver.users.update_user_authentication_method(
+                    user['id'], {'auth_data': to_username if to_username and username != to_username else username,
+                                 'auth_service': 'ldap'}
+                )
+            else:
+                mm.driver.users.patch_user(user['id'], opt)
+
+            yield 'Done. User is updated.\n{}\nPlease note that if the user is authenticated through LDAP, the fields ' \
+                  'other than `username` will be overwritten by LDAP. Please notify user to make the change from ' \
+                  'upstream.'.format(changes)
+        except ResourceNotFound:
+            yield 'I can\'t find user under username `{}` in the system.'.format(username)
+            return
         except Exception as e:
             yield e
             return

@@ -1,2 +1,2 @@
-git+git://github.com/ubc/mattermost-sync#egg=mattermost-sync
+# git+git://github.com/ubc/mattermost-sync#egg=mattermost-sync
 cryptography

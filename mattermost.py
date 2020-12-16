@@ -270,6 +270,10 @@ class Mattermost(BotPlugin):
     @arg_botcmd('--role', dest='role', default='user', choices=['admin', 'user'])
     def mm_user_add(self, message, username, team_name, role):
         """Add a user to a team"""
+        # check if personal token is set
+        if 'tokens' not in self or message.frm.person not in self['tokens']:
+            yield 'Please use `!mm token set ENCRYPTED_ACCESS_TOKEN` to set up Mattermost access token.'
+
         token = self['tokens'][message.frm.person]
         try:
             mm = self.init_mm(token)
@@ -309,6 +313,10 @@ class Mattermost(BotPlugin):
     @arg_botcmd('username')
     def mm_user_remove(self, message, username, team_name):
         """Remove a user from a team"""
+        # check if personal token is set
+        if 'tokens' not in self or message.frm.person not in self['tokens']:
+            yield 'Please use `!mm token set ENCRYPTED_ACCESS_TOKEN` to set up Mattermost access token.'
+
         token = self['tokens'][message.frm.person]
         try:
             mm = self.init_mm(token)
@@ -350,6 +358,10 @@ class Mattermost(BotPlugin):
     @arg_botcmd('username')
     def mm_user_activate(self, message, username):
         """Activate a user"""
+        # check if personal token is set
+        if 'tokens' not in self or message.frm.person not in self['tokens']:
+            yield 'Please use `!mm token set ENCRYPTED_ACCESS_TOKEN` to set up Mattermost access token.'
+
         token = self['tokens'][message.frm.person]
         try:
             mm = self.init_mm(token)
@@ -361,6 +373,10 @@ class Mattermost(BotPlugin):
     @arg_botcmd('username')
     def mm_user_deactivate(self, message, username):
         """Activate a user"""
+        # check if personal token is set
+        if 'tokens' not in self or message.frm.person not in self['tokens']:
+            yield 'Please use `!mm token set ENCRYPTED_ACCESS_TOKEN` to set up Mattermost access token.'
+
         token = self['tokens'][message.frm.person]
         try:
             mm = self.init_mm(token)
@@ -373,6 +389,10 @@ class Mattermost(BotPlugin):
     @arg_botcmd('-f', '--full', dest='full', action='store_true')
     def mm_user_get(self, message, username, full):
         """Get user info by username"""
+        # check if personal token is set
+        if 'tokens' not in self or message.frm.person not in self['tokens']:
+            yield 'Please use `!mm token set ENCRYPTED_ACCESS_TOKEN` to set up Mattermost access token.'
+
         token = self['tokens'][message.frm.person]
         try:
             mm = self.init_mm(token)
@@ -397,6 +417,10 @@ class Mattermost(BotPlugin):
     @arg_botcmd('--nickname', dest='nickname')
     def mm_user_update(self, message, username, to_username, email, firstname, lastname, nickname):
         """Update user info"""
+        # check if personal token is set
+        if 'tokens' not in self or message.frm.person not in self['tokens']:
+            yield 'Please use `!mm token set ENCRYPTED_ACCESS_TOKEN` to set up Mattermost access token.'
+
         token = self['tokens'][message.frm.person]
         try:
             opt = {}
@@ -461,6 +485,10 @@ class Mattermost(BotPlugin):
     @arg_botcmd('--display-name', dest='display_name')
     @arg_botcmd('--type', dest='team_type', default='I', choices=['O', 'I'])
     def mm_team_add(self, message, team_name, display_name, team_type):
+        # check if personal token is set
+        if 'tokens' not in self or message.frm.person not in self['tokens']:
+            yield 'Please use `!mm token set ENCRYPTED_ACCESS_TOKEN` to set up Mattermost access token.'
+
         token = self['tokens'][message.frm.person]
         try:
             mm = self.init_mm(token)
@@ -484,6 +512,10 @@ class Mattermost(BotPlugin):
     @botcmd()
     def mm_team_list(self, message, args):
         """List all teams in in Mattermost"""
+        # check if personal token is set
+        if 'tokens' not in self or message.frm.person not in self['tokens']:
+            yield 'Please use `!mm token set ENCRYPTED_ACCESS_TOKEN` to set up Mattermost access token.'
+
         token = self['tokens'][message.frm.person]
         try:
             mm = self.init_mm(token)

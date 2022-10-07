@@ -529,7 +529,7 @@ class Mattermost(BotPlugin):
             if len(t) < 60:
                 break
 
-        return 'OK, here is a list of teams:\nName - Display Name\n' + '\n'.join(
+        yield 'OK, here is a list of teams:\nName - Display Name\n' + '\n'.join(
             ['{} - {}'.format(t['name'], t['display_name']) for t in teams]
         ) if teams else 'I don\'t see any team.'
 

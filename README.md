@@ -1,3 +1,5 @@
+# As we decommissioned our instance, this repo will not be updated anymore. Please use the upstream repo for future updates.
+
 # Mattermost Plugin
 
 This plugins syncs LDAP groups to Mattermost teams
